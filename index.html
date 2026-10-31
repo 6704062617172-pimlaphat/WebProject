@@ -5,23 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Numerical Methods Complete Calculator</title>
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts: Inter & Sarabun -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Math.js & Plotly.js -->
+  <!-- Libraries ผ่าน CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
 
-  <!-- Google Sign-In Library -->
+  <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Header พร้อมปุ่ม Google Login -->
+  <!-- Header -->
   <header>
     <div class="nav-container">
       <div class="brand">
@@ -30,14 +30,15 @@
           <div class="subtitle">Complete Numerical Methods Calculator</div>
         </div>
       </div>
-      
-      <!-- ส่วนแสดงสถานะและปุ่ม Google Login -->
+
+      <!-- ส่วนจัดการสถานะ Google Sign-In -->
       <div class="user-auth-area">
         <div id="g_id_onload"
              data-client_id="967377353192-u3kcuvat163s3njtn0em2bcm0a9ei74a.apps.googleusercontent.com"
              data-callback="handleCredentialResponse">
         </div>
         <div id="googleSignInBtn" class="g_id_signin" data-type="standard" data-shape="pill" data-theme="outline" data-text="signin_with" data-size="medium"></div>
+        
         <div id="userProfile" class="user-profile" style="display: none;">
           <img id="userAvatar" class="user-avatar" src="" alt="avatar">
           <span id="userName" class="user-name"></span>
@@ -104,16 +105,19 @@
         <span class="result-value" id="resultValue">-</span>
       </div>
 
+      <!-- Interactive Graph -->
       <div class="graph-card" id="graphContainer">
         <h3 class="section-title">Interactive Graph (Plotly)</h3>
         <div id="plotlyChart" style="width: 100%; height: 420px;"></div>
       </div>
 
+      <!-- Formula Card -->
       <div id="formulaBox" class="formula-card">
         <div class="formula-badge">สูตรและหลักการคำนวณที่ใช้ (Method Formula)</div>
         <div id="formulaContent" class="formula-content"></div>
       </div>
 
+      <!-- Step-by-Step Table -->
       <div class="table-card">
         <h3 class="section-title" id="tableTitle">ตารางขั้นตอนการคำนวณ (Steps)</h3>
         <div class="table-responsive">
@@ -125,10 +129,13 @@
       </div>
     </section>
 
-    <!-- History Section (ถอดรูปแบบตามรูปภาพต้นฉบับ 5 Most recent solved problems) -->
+    <!-- History Section -->
     <section class="history-card">
       <div class="history-header">
-        <h3 class="section-title" style="margin: 0;">5 Most recent solved problems</h3>
+        <div>
+          <h3 class="section-title" style="margin: 0;">5 Most recent solved problems</h3>
+          <div id="authNotice" class="auth-notice">ℹ️ ระบบจะบันทึกประวัติเฉพาะเมื่อคุณเข้าสู่ระบบด้วย Google เท่านั้น</div>
+        </div>
         <button class="btn-clear" onclick="clearHistory()">ล้างประวัติ</button>
       </div>
       <div class="table-responsive">

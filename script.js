@@ -1,4 +1,4 @@
-// ตัวแปรเก็บผู้ใช้ปัจจุบัน (ถ้ายังไม่ล็อกอินจะเป็น null)
+// ดึงข้อมูลผู้ใช้จาก localStorage
 let currentUser = JSON.parse(localStorage.getItem("numer_google_user") || "null");
 
 // ----------------- GOOGLE AUTHENTICATION -----------------
@@ -10,7 +10,8 @@ function parseJwt(token) {
       return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
     }).join(''));
     return JSON.parse(jsonPayload);
-  } catch {
+  } catch (e) {
+    console.error("JWT parse error:", e);
     return null;
   }
 }
@@ -32,15 +33,21 @@ function updateAuthUI() {
   const profileDiv = document.getElementById("userProfile");
   const avatar = document.getElementById("userAvatar");
   const nameSpan = document.getElementById("userName");
+  const notice = document.getElementById("authNotice");
 
   if (currentUser) {
     if (signInBtn) signInBtn.style.display = "none";
     if (profileDiv) profileDiv.style.display = "flex";
-    if (avatar) avatar.src = currentUser.picture;
+    if (avatar && currentUser.picture) {
+      avatar.src = currentUser.picture;
+      avatar.style.display = "block";
+    }
     if (nameSpan) nameSpan.innerText = currentUser.name;
+    if (notice) notice.innerHTML = `✅ กำลังใช้งานโดย: <b>${currentUser.name}</b> (ระบบจะบันทึกทุกปัญหาที่คุณแก้)`;
   } else {
     if (signInBtn) signInBtn.style.display = "block";
     if (profileDiv) profileDiv.style.display = "none";
+    if (notice) notice.innerHTML = `ℹ️ ระบบจะบันทึกประวัติเฉพาะเมื่อคุณเข้าสู่ระบบด้วย Google เท่านั้น`;
   }
 }
 
@@ -50,7 +57,6 @@ function logoutGoogle() {
   updateAuthUI();
 }
 
-// ----------------- HELPER: สุ่ม ID แบบตัวอย่าง (เช่น wgivc7) -----------------
 function generateShortId() {
   return Math.random().toString(36).substring(2, 8);
 }
@@ -267,21 +273,22 @@ function solveProblem() {
     if (resultData) {
       displayFormulaNote(sol);
 
-      // บันทึกลงตารางประวัติในโครงสร้างแบบรูปภาพ
-      saveHistory({
-        id: generateShortId(),
-        problemJson: resultData.problemJson,
-        user: currentUser ? currentUser.name : "-",
-        date: formatThaiDateTime(new Date()),
-        iterations: resultData.iterations || 0
-      });
+      // เงื่อนไข: จะบันทึกปัญหาลงตารางประวัติเฉพาะเมื่อผู้ใช้ล็อกอินเท่านั้น
+      if (currentUser) {
+        saveHistory({
+          id: generateShortId(),
+          problemJson: resultData.problemJson,
+          user: currentUser.name,
+          date: formatThaiDateTime(new Date()),
+          iterations: resultData.iterations || 0
+        });
+      }
     }
   } catch (err) {
     alert("เกิดข้อผิดพลาดในการคำนวณ: " + err.message);
   }
 }
 
-// จัดรูปแบบวันเวลา เช่น "17:29:08 29 ตุลาคม 2569" แบบในรูป
 function formatThaiDateTime(date) {
   const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
   const time = date.toTimeString().split(' ')[0];
@@ -806,7 +813,7 @@ function plotChart(traces) {
 function saveHistory(item) {
   let history = JSON.parse(localStorage.getItem("numer_5_recent_problems") || "[]");
   history.unshift(item);
-  if (history.length > 5) history.pop(); // จำกัด 5 รายการล่าสุดตามรูป
+  if (history.length > 5) history.pop();
   localStorage.setItem("numer_5_recent_problems", JSON.stringify(history));
   loadHistory();
 }
@@ -817,7 +824,7 @@ function loadHistory() {
   if (!historyBody) return;
 
   if (history.length === 0) {
-    historyBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">ยังไม่มีประวัติการคำนวณ</td></tr>`;
+    historyBody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">ยังไม่มีประวัติการคำนวณที่บันทึกไว้</td></tr>`;
     return;
   }
 
@@ -825,7 +832,7 @@ function loadHistory() {
     <tr>
       <td><span class="history-id-link">${item.id}</span></td>
       <td style="font-family: monospace; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title='${item.problemJson}'>${item.problemJson}</td>
-      <td style="color: ${item.user === '-' ? 'var(--text-muted)' : '#fff'}; font-weight: ${item.user === '-' ? 'normal' : '600'};">${item.user}</td>
+      <td style="color: #fff; font-weight: 600;">${item.user}</td>
       <td class="history-date">${item.date}</td>
       <td style="text-align: center;">${item.iterations}</td>
     </tr>

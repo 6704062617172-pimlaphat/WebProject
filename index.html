@@ -3,39 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Numerical Methods Calculator</title>
+  <title>Numerical Methods Complete Calculator</title>
 
-  <!-- Google Fonts: Inter & Sarabun -->
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Sarabun:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Libraries ผ่าน CDN -->
+  <!-- Math.js & Plotly.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
+
+  <!-- Google Sign-In Library -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- Header -->
+  <!-- Header พร้อมปุ่ม Google Login -->
   <header>
     <div class="nav-container">
       <div class="brand">
         <div>
           <span class="logo-text">NumerCalc</span>
-          <div class="subtitle">Numerical Methods Calculator</div>
+          <div class="subtitle">Complete Numerical Methods Calculator</div>
         </div>
       </div>
-      <span class="nav-badge">6 Methods Included</span>
+      
+      <!-- ส่วนแสดงสถานะและปุ่ม Google Login -->
+      <div class="user-auth-area">
+        <div id="g_id_onload"
+             data-client_id="967377353192-u3kcuvat163s3njtn0em2bcm0a9ei74a.apps.googleusercontent.com"
+             data-callback="handleCredentialResponse">
+        </div>
+        <div id="googleSignInBtn" class="g_id_signin" data-type="standard" data-shape="pill" data-theme="outline" data-text="signin_with" data-size="medium"></div>
+        <div id="userProfile" class="user-profile" style="display: none;">
+          <img id="userAvatar" class="user-avatar" src="" alt="avatar">
+          <span id="userName" class="user-name"></span>
+          <button class="btn-logout" onclick="logoutGoogle()">Logout</button>
+        </div>
+      </div>
     </div>
   </header>
 
   <!-- Main Container -->
   <main>
     <div class="title-banner">
-      <h1>Numerical Methods</h1>
-      <p>เครื่องคำนวณระเบียบวิธีเชิงตัวเลข พร้อมตารางวิธีทำและกราฟโต้ตอบ</p>
+      <h1>Project of Numerical Methods</h1>
+      <p>เครื่องคำนวณระเบียบวิธีเชิงตัวเลข ครบทั้ง 6 หมวดคำนวณ พร้อมตารางวิธีทำและกราฟโต้ตอบ</p>
     </div>
 
     <!-- Input Card -->
@@ -55,9 +71,7 @@
 
         <div class="field-group">
           <label for="solutionType">Solution (วิธีแก้ปัญหา):</label>
-          <select id="solutionType" onchange="renderDynamicInputs()">
-            <!-- ตัวเลือกจะเปลี่ยนตามหมวดปัญหา -->
-          </select>
+          <select id="solutionType" onchange="renderDynamicInputs()"></select>
         </div>
 
         <div class="field-group">
@@ -66,10 +80,8 @@
         </div>
       </div>
 
-      <!-- ฟิลด์ตัวแปรที่จะเปลี่ยนตามโจทย์ -->
       <div id="dynamicInputs" class="dynamic-inputs"></div>
 
-      <!-- ปุ่มโจทย์ตัวอย่างด่วน -->
       <div class="preset-container">
         <span class="preset-title">โจทย์ทดสอบด่วน:</span>
         <button class="btn-preset" onclick="loadPreset('root')">Root: x² - 4</button>
@@ -92,13 +104,16 @@
         <span class="result-value" id="resultValue">-</span>
       </div>
 
-      <!-- Interactive Graph -->
       <div class="graph-card" id="graphContainer">
         <h3 class="section-title">Interactive Graph (Plotly)</h3>
         <div id="plotlyChart" style="width: 100%; height: 420px;"></div>
       </div>
 
-      <!-- Step-by-Step Table -->
+      <div id="formulaBox" class="formula-card">
+        <div class="formula-badge">สูตรและหลักการคำนวณที่ใช้ (Method Formula)</div>
+        <div id="formulaContent" class="formula-content"></div>
+      </div>
+
       <div class="table-card">
         <h3 class="section-title" id="tableTitle">ตารางขั้นตอนการคำนวณ (Steps)</h3>
         <div class="table-responsive">
@@ -110,21 +125,21 @@
       </div>
     </section>
 
-    <!-- History Section -->
+    <!-- History Section (ถอดรูปแบบตามรูปภาพต้นฉบับ 5 Most recent solved problems) -->
     <section class="history-card">
       <div class="history-header">
-        <h3 class="section-title" style="margin: 0;">ประวัติการคำนวณ (Calculation History)</h3>
+        <h3 class="section-title" style="margin: 0;">5 Most recent solved problems</h3>
         <button class="btn-clear" onclick="clearHistory()">ล้างประวัติ</button>
       </div>
       <div class="table-responsive">
         <table>
           <thead>
             <tr>
-              <th>เวลา</th>
-              <th>ประเภท</th>
-              <th>วิธี (Method)</th>
-              <th>โจทย์</th>
-              <th>ผลลัพธ์</th>
+              <th>ID</th>
+              <th>Problem</th>
+              <th>User</th>
+              <th>Date</th>
+              <th>Iterations</th>
             </tr>
           </thead>
           <tbody id="historyBody"></tbody>

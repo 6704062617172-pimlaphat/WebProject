@@ -153,6 +153,12 @@ main {
   margin-bottom: 1rem;
 }
 
+.auth-notice {
+  font-size: 0.8rem;
+  color: var(--accent-orange);
+  margin-top: 0.25rem;
+}
+
 .btn-clear {
   background: transparent;
   border: 1px solid var(--border-color);
@@ -415,7 +421,6 @@ tbody td {
 
 tbody tr:hover { background: rgba(255, 255, 255, 0.02); }
 
-/* สไตล์ลิงก์ ID และวันเวลาตามตารางตัวอย่าง */
 .history-id-link {
   color: #38bdf8;
   text-decoration: underline;

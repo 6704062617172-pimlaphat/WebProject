@@ -1,3 +1,61 @@
+// ตัวแปรเก็บผู้ใช้ปัจจุบัน (ถ้ายังไม่ล็อกอินจะเป็น null)
+let currentUser = JSON.parse(localStorage.getItem("numer_google_user") || "null");
+
+// ----------------- GOOGLE AUTHENTICATION -----------------
+function parseJwt(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+      return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+    }).join(''));
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+function handleCredentialResponse(response) {
+  const userObj = parseJwt(response.credential);
+  if (userObj) {
+    currentUser = {
+      name: userObj.name || userObj.given_name || "User",
+      picture: userObj.picture || ""
+    };
+    localStorage.setItem("numer_google_user", JSON.stringify(currentUser));
+    updateAuthUI();
+  }
+}
+
+function updateAuthUI() {
+  const signInBtn = document.getElementById("googleSignInBtn");
+  const profileDiv = document.getElementById("userProfile");
+  const avatar = document.getElementById("userAvatar");
+  const nameSpan = document.getElementById("userName");
+
+  if (currentUser) {
+    if (signInBtn) signInBtn.style.display = "none";
+    if (profileDiv) profileDiv.style.display = "flex";
+    if (avatar) avatar.src = currentUser.picture;
+    if (nameSpan) nameSpan.innerText = currentUser.name;
+  } else {
+    if (signInBtn) signInBtn.style.display = "block";
+    if (profileDiv) profileDiv.style.display = "none";
+  }
+}
+
+function logoutGoogle() {
+  currentUser = null;
+  localStorage.removeItem("numer_google_user");
+  updateAuthUI();
+}
+
+// ----------------- HELPER: สุ่ม ID แบบตัวอย่าง (เช่น wgivc7) -----------------
+function generateShortId() {
+  return Math.random().toString(36).substring(2, 8);
+}
+
+// ----------------- SOLVER & CORE METHODS -----------------
 const problemSolutions = {
   ROOT_OF_EQUATION: [
     { id: "BISECTION", name: "Bisection Method" },
@@ -62,7 +120,7 @@ function renderDynamicInputs() {
             <input type="number" id="x0Input" placeholder="เช่น 3" step="any">
           </div>
           <div class="field-group">
-            <label>ค่าความคลาดเคลื่อนที่ยอมรับ (Error Tolerance %):</label>
+            <label>Error Tolerance (%):</label>
             <input type="number" id="tolInput" placeholder="เช่น 0.0001" step="any">
           </div>
         </div>
@@ -83,7 +141,7 @@ function renderDynamicInputs() {
             <input type="number" id="xrInput" placeholder="เช่น 3" step="any">
           </div>
           <div class="field-group">
-            <label>ค่าความคลาดเคลื่อนที่ยอมรับ (Error Tolerance %):</label>
+            <label>Error Tolerance (%):</label>
             <input type="number" id="tolInput" placeholder="เช่น 0.0001" step="any">
           </div>
         </div>
@@ -112,7 +170,7 @@ function renderDynamicInputs() {
           <textarea id="pointsInput" rows="4" placeholder="เช่น&#10;0, 9.81&#10;20000, 9.7487&#10;40000, 9.6879&#10;80000, 9.5682"></textarea>
         </div>
         <div class="field-group">
-          <label>ค่า x ที่ต้องการหาค่า y:</label>
+          <label>ค่า x ที่ต้องการคำนวณ:</label>
           <input type="number" id="targetXInput" placeholder="เช่น 42285" step="any">
         </div>
       </div>
@@ -143,7 +201,7 @@ function renderDynamicInputs() {
       <div class="grid-inputs">
         <div class="field-group">
           <label>ฟังก์ชัน f(x):</label>
-          <input type="text" id="fnInput" placeholder="เช่น e^x หรือ x^3 + 2*x">
+          <input type="text" id="fnInput" placeholder="เช่น e^x">
         </div>
         <div class="field-group">
           <label>จุดที่ต้องการหาอนุพันธ์ (x):</label>
@@ -183,43 +241,39 @@ function evaluateFn(expr, xVal) {
   return math.evaluate(expr, { x: xVal, e: Math.E, pi: Math.PI });
 }
 
-// ----------------- MAIN SOLVE HANDLER -----------------
+// ----------------- SOLVE HANDLER -----------------
 function solveProblem() {
   const prob = document.getElementById("problemType").value;
   const sol = document.getElementById("solutionType").value;
   const prec = parseInt(document.getElementById("precisionInput").value) || 6;
 
   try {
-    let resultText = "";
-    let payload = "";
+    let resultData = null;
 
     if (prob === "ROOT_OF_EQUATION") {
-      resultText = runRootOfEquation(sol, prec);
-      payload = document.getElementById("fnInput") ? document.getElementById("fnInput").value : "";
+      resultData = runRootOfEquation(sol, prec);
     } else if (prob === "LINEAR_ALGEBRA") {
-      resultText = runLinearAlgebra(sol, prec);
-      payload = `Matrix ${matrixDimension}x${matrixDimension}`;
+      resultData = runLinearAlgebra(sol, prec);
     } else if (prob === "INTERPOLATION") {
-      resultText = runInterpolation(sol, prec);
-      payload = `x = ${document.getElementById("targetXInput").value}`;
+      resultData = runInterpolation(sol, prec);
     } else if (prob === "EXTRAPOLATION") {
-      resultText = runExtrapolation(sol, prec);
-      payload = `x = ${document.getElementById("targetXInput").value}`;
+      resultData = runExtrapolation(sol, prec);
     } else if (prob === "INTEGRATION") {
-      resultText = runIntegration(sol, prec);
-      payload = document.getElementById("fnInput") ? document.getElementById("fnInput").value : "";
+      resultData = runIntegration(sol, prec);
     } else if (prob === "DIFFERENTIATION") {
-      resultText = runDifferentiation(sol, prec);
-      payload = `f'(${document.getElementById("diffXInput").value})`;
+      resultData = runDifferentiation(sol, prec);
     }
 
-    if (resultText) {
+    if (resultData) {
+      displayFormulaNote(sol);
+
+      // บันทึกลงตารางประวัติในโครงสร้างแบบรูปภาพ
       saveHistory({
-        time: new Date().toLocaleTimeString('th-TH'),
-        type: prob,
-        method: sol,
-        problem: payload,
-        result: resultText
+        id: generateShortId(),
+        problemJson: resultData.problemJson,
+        user: currentUser ? currentUser.name : "-",
+        date: formatThaiDateTime(new Date()),
+        iterations: resultData.iterations || 0
       });
     }
   } catch (err) {
@@ -227,7 +281,17 @@ function solveProblem() {
   }
 }
 
-// ----------------- 1. ROOT OF EQUATION -----------------
+// จัดรูปแบบวันเวลา เช่น "17:29:08 29 ตุลาคม 2569" แบบในรูป
+function formatThaiDateTime(date) {
+  const months = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+  const time = date.toTimeString().split(' ')[0];
+  const day = date.getDate();
+  const month = months[date.getMonth()];
+  const year = date.getFullYear() + 543;
+  return `${time} ${day} ${month} ${year}`;
+}
+
+// ----------------- ALGORITHMS IMPLEMENTATION -----------------
 function runRootOfEquation(sol, prec) {
   const fnInput = document.getElementById("fnInput");
   const tolInput = document.getElementById("tolInput");
@@ -238,63 +302,53 @@ function runRootOfEquation(sol, prec) {
 
   const fnStr = fnInput.value.trim();
   const tol = parseFloat(tolInput.value);
-  let steps = [];
-  let root = null;
+  let steps = [], root = null, iters = 0;
+  let pJson = "";
 
   if (sol === "BISECTION" || sol === "FALSE_POSITION") {
     let xl = parseFloat(document.getElementById("xlInput").value);
     let xr = parseFloat(document.getElementById("xrInput").value);
+    pJson = JSON.stringify({ xStart: xl, xEnd: xr, errorFactor: tol, func: fnStr });
 
-    let fL = evaluateFn(fnStr, xl);
-    let fR = evaluateFn(fnStr, xr);
+    let fL = evaluateFn(fnStr, xl), fR = evaluateFn(fnStr, xr);
     if (fL * fR > 0) {
-      alert("คำเตือน: f(X_L) และ f(X_R) ต้องมีเครื่องหมายตรงกันข้ามกัน (f(a) * f(b) < 0)");
+      alert("คำเตือน: f(X_L) และ f(X_R) ต้องมีเครื่องหมายต่างกัน");
       return null;
     }
 
-    let xm = 0, xmOld = null, iter = 0;
-    while (iter < 100) {
-      iter++;
+    let xm = 0, xmOld = null;
+    while (iters < 100) {
+      iters++;
       xm = (sol === "BISECTION") ? (xl + xr) / 2 : ((xl * fR) - (xr * fL)) / (fR - fL);
       let fM = evaluateFn(fnStr, xm);
-      let error = (iter > 1 && xm !== 0) ? Math.abs((xm - xmOld) / xm) * 100 : null;
+      let error = (iters > 1 && xm !== 0) ? Math.abs((xm - xmOld) / xm) * 100 : null;
 
-      steps.push({ iter, xl, xr, xm, fM, error: error !== null ? error : "-" });
-
-      if (Math.abs(fM) === 0 || (error !== null && error < tol)) {
-        root = xm;
-        break;
-      }
+      steps.push({ iter: iters, xl, xr, xm, fM, error: error !== null ? error : "-" });
+      if (Math.abs(fM) === 0 || (error !== null && error < tol)) { root = xm; break; }
       if (fL * fM < 0) { xr = xm; fR = fM; } else { xl = xm; fL = fM; }
-      xmOld = xm;
-      root = xm;
+      xmOld = xm; root = xm;
     }
 
     renderTable(["Iter", "X_L", "X_R", "X_M", "f(X_M)", "Error (%)"], steps, prec);
     renderRootGraph(fnStr, steps[0].xl, steps[0].xr, root);
   } else if (sol === "NEWTON_RAPHSON") {
     let xCurr = parseFloat(document.getElementById("x0Input").value);
-    let iter = 0;
+    pJson = JSON.stringify({ x0: xCurr, errorFactor: tol, func: fnStr });
     let dExpr = null;
     try { dExpr = math.derivative(fnStr, 'x'); } catch {}
 
-    while (iter < 100) {
-      iter++;
+    while (iters < 100) {
+      iters++;
       let fx = evaluateFn(fnStr, xCurr);
       let dfx = dExpr ? dExpr.evaluate({ x: xCurr }) : (evaluateFn(fnStr, xCurr + 1e-7) - evaluateFn(fnStr, xCurr - 1e-7)) / 2e-7;
-
-      if (Math.abs(dfx) < 1e-12) {
-        alert("f'(x) เข้าใกล้ 0 ไม่สามารถคำนวณต่อได้");
-        break;
-      }
+      if (Math.abs(dfx) < 1e-12) break;
 
       let xNext = xCurr - (fx / dfx);
       let error = (xNext !== 0) ? Math.abs((xNext - xCurr) / xNext) * 100 : null;
 
-      steps.push({ iter, xCurr, fx, dfx, xNext, error: error !== null ? error : "-" });
+      steps.push({ iter: iters, xCurr, fx, dfx, xNext, error: error !== null ? error : "-" });
       if (error !== null && error < tol) { root = xNext; break; }
-      xCurr = xNext;
-      root = xCurr;
+      xCurr = xNext; root = xCurr;
     }
 
     renderTable(["Iter", "X_n", "f(X_n)", "f'(X_n)", "X_n+1", "Error (%)"], steps, prec);
@@ -302,10 +356,9 @@ function runRootOfEquation(sol, prec) {
   }
 
   showResult(`Root Solution: x ≈ ${root.toFixed(prec)}`);
-  return `x ≈ ${root.toFixed(prec)}`;
+  return { problemJson: pJson, iterations: iters };
 }
 
-// ----------------- 2. LINEAR ALGEBRA EQUATION -----------------
 function runLinearAlgebra(sol, prec) {
   const dim = matrixDimension;
   let A = [], b = [];
@@ -314,250 +367,153 @@ function runLinearAlgebra(sol, prec) {
     A[r] = [];
     for (let c = 0; c < dim; c++) {
       let val = parseFloat(document.getElementById(`mat_a_${r}_${c}`).value);
-      if (isNaN(val)) { alert("กรุณากรอกตัวเลขใน Matrix A ให้ครบถ้วน"); return null; }
+      if (isNaN(val)) { alert("กรุณากรอกตัวเลข Matrix ให้ครบ"); return null; }
       A[r][c] = val;
     }
     let bVal = parseFloat(document.getElementById(`mat_b_${r}`).value);
-    if (isNaN(bVal)) { alert("กรุณากรอกตัวเลขใน Matrix B ให้ครบถ้วน"); return null; }
+    if (isNaN(bVal)) { alert("กรุณากรอกตัวเลข Matrix B ให้ครบ"); return null; }
     b[r] = bVal;
   }
 
-  let solutions = [];
-  let steps = [];
+  let solutions = [], steps = [];
 
   if (sol === "GAUSS_JORDAN") {
-    // Augmented Matrix [A | b]
-    let mat = [];
-    for (let i = 0; i < dim; i++) {
-      mat[i] = [...A[i], b[i]];
-    }
-
-    // อัลกอริทึม RREF ตามเอกสารรายงาน
+    let mat = A.map((row, i) => [...row, b[i]]);
     let lead = 0;
     for (let r = 0; r < mat.length; r++) {
       if (mat[0].length <= lead) break;
       let i = r;
       while (mat[i][lead] === 0) {
         i++;
-        if (mat.length === i) {
-          i = r;
-          lead++;
-          if (mat[0].length === lead) break;
-        }
+        if (mat.length === i) { i = r; lead++; if (mat[0].length === lead) break; }
       }
       if (mat[0].length === lead) break;
-
       let tmp = mat[i]; mat[i] = mat[r]; mat[r] = tmp;
       let val = mat[r][lead];
-      for (let j = 0; j < mat[0].length; j++) {
-        mat[r][j] = mat[r][j] / val;
-      }
-      for (let i = 0; i < mat.length; i++) {
-        if (i === r) continue;
-        let factor = mat[i][lead];
-        for (let j = 0; j < mat[0].length; j++) {
-          mat[i][j] = mat[i][j] - factor * mat[r][j];
-        }
+      for (let j = 0; j < mat[0].length; j++) mat[r][j] /= val;
+      for (let k = 0; k < mat.length; k++) {
+        if (k === r) continue;
+        let factor = mat[k][lead];
+        for (let j = 0; j < mat[0].length; j++) mat[k][j] -= factor * mat[r][j];
       }
       lead++;
     }
-
     for (let i = 0; i < dim; i++) {
       solutions.push(mat[i][dim]);
-      steps.push({
-        var: `x${i + 1}`,
-        equation: `Row ${i + 1} Result`,
-        value: mat[i][dim]
-      });
+      steps.push({ var: `x${i + 1}`, equation: `Row ${i + 1} Result`, value: mat[i][dim] });
     }
-
     renderTable(["Variable", "Description", "Value"], steps, prec);
   } else if (sol === "CRAMER") {
     let detA = math.det(A);
-    if (Math.abs(detA) < 1e-12) {
-      alert("det(A) = 0 ระบบสมการไม่มีคำตอบเดี่ยว (Cramer's Rule ไม่สามารถใช้ได้)");
-      return null;
-    }
-
     for (let i = 0; i < dim; i++) {
       let Ai = A.map((row, rIdx) => row.map((val, cIdx) => cIdx === i ? b[rIdx] : val));
       let detAi = math.det(Ai);
       let xi = detAi / detA;
       solutions.push(xi);
-      steps.push({
-        var: `x${i + 1}`,
-        detAi: detAi,
-        detA: detA,
-        result: xi
-      });
+      steps.push({ var: `x${i + 1}`, detAi, detA, result: xi });
     }
-
-    renderTable(["Variable", "det(Ai)", "det(A)", "x_i = det(Ai) / det(A)"], steps, prec);
+    renderTable(["Variable", "det(Ai)", "det(A)", "x_i"], steps, prec);
   }
 
-  // ซ่อนกราฟเพราะเป็น Linear System หลายมิติ
   document.getElementById("graphContainer").style.display = "none";
   let solStr = solutions.map((s, idx) => `x${idx + 1} = ${s.toFixed(prec)}`).join(", ");
   showResult(`Solution: (${solStr})`);
-  return solStr;
+  return { problemJson: JSON.stringify({ matrixA: A, matrixB: b }), iterations: dim };
 }
 
-// ----------------- 3. INTERPOLATION -----------------
 function parsePoints() {
   const text = document.getElementById("pointsInput").value.trim();
-  if (!text) { alert("กรุณากรอกชุดจุดข้อมูล x, y"); return null; }
-  const lines = text.split("\n");
+  if (!text) { alert("กรุณากรอกชุดจุดข้อมูล"); return null; }
   let pts = [];
-  for (let line of lines) {
+  for (let line of text.split("\n")) {
     let parts = line.split(",").map(v => parseFloat(v.trim()));
     if (parts.length >= 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
       pts.push({ x: parts[0], y: parts[1] });
     }
   }
-  if (pts.length < 2) { alert("ต้องมีจุดข้อมูลอย่างน้อย 2 จุด"); return null; }
   return pts;
 }
 
 function runInterpolation(sol, prec) {
   const pts = parsePoints();
   if (!pts) return null;
-  const targetXInput = document.getElementById("targetXInput");
-  if (!targetXInput.value) { alert("กรุณากรอกค่า x ที่ต้องการคำนวณ"); return null; }
-  const targetX = parseFloat(targetXInput.value);
-
+  const targetX = parseFloat(document.getElementById("targetXInput").value);
   const n = pts.length;
-  let estimatedY = 0;
-  let steps = [];
+  let estimatedY = 0, steps = [];
 
   if (sol === "NEWTON_DIVIDED") {
-    // Divided Difference Table
     let table = Array.from({ length: n }, () => Array(n).fill(0));
     for (let i = 0; i < n; i++) table[i][0] = pts[i].y;
-
     for (let j = 1; j < n; j++) {
       for (let i = 0; i < n - j; i++) {
         table[i][j] = (table[i + 1][j - 1] - table[i][j - 1]) / (pts[i + j].x - pts[i].x);
       }
     }
-
     estimatedY = table[0][0];
     let term = 1;
     steps.push({ order: 0, term: `b0 = ${table[0][0].toFixed(prec)}`, value: estimatedY });
-
     for (let j = 1; j < n; j++) {
       term *= (targetX - pts[j - 1].x);
-      let addVal = table[0][j] * term;
-      estimatedY += addVal;
-      steps.push({ order: j, term: `b${j} * product(x - x_i)`, value: estimatedY });
+      estimatedY += table[0][j] * term;
+      steps.push({ order: j, term: `b${j} term`, value: estimatedY });
     }
-
     renderTable(["Order (n)", "Term Calculation", "Cumulative y"], steps, prec);
   } else if (sol === "LAGRANGE") {
     for (let i = 0; i < n; i++) {
       let L = 1;
-      for (let j = 0; j < n; j++) {
-        if (i !== j) {
-          L *= (targetX - pts[j].x) / (pts[i].x - pts[j].x);
-        }
-      }
+      for (let j = 0; j < n; j++) if (i !== j) L *= (targetX - pts[j].x) / (pts[i].x - pts[j].x);
       let termVal = L * pts[i].y;
       estimatedY += termVal;
-      steps.push({ i: i + 1, point: `(${pts[i].x}, ${pts[i].y})`, L_i: L, termVal: termVal });
+      steps.push({ i: i + 1, point: `(${pts[i].x}, ${pts[i].y})`, L_i: L, termVal });
     }
-
-    renderTable(["i", "Point (x_i, y_i)", "Lagrange Weight L_i(x)", "L_i(x) * y_i"], steps, prec);
+    renderTable(["i", "Point", "Weight L_i(x)", "L_i(x) * y_i"], steps, prec);
   }
 
   renderPointsGraph(pts, targetX, estimatedY, "Interpolation Curve");
   showResult(`Interpolation at x = ${targetX}: y ≈ ${estimatedY.toFixed(prec)}`);
-  return `y ≈ ${estimatedY.toFixed(prec)}`;
+  return { problemJson: JSON.stringify({ points: pts, targetX }), iterations: 0 };
 }
 
-// ----------------- 4. EXTRAPOLATION (REGRESSION) -----------------
 function runExtrapolation(sol, prec) {
   const pts = parsePoints();
   if (!pts) return null;
-  const targetXInput = document.getElementById("targetXInput");
-  if (!targetXInput.value) { alert("กรุณากรอกค่า x ที่ต้องการคำนวณ"); return null; }
-  const targetX = parseFloat(targetXInput.value);
-
+  const targetX = parseFloat(document.getElementById("targetXInput").value);
   const n = pts.length;
-  let estimatedY = 0;
-  let steps = [];
+  let estimatedY = 0, steps = [];
 
   let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-  pts.forEach(p => {
-    sumX += p.x; sumY += p.y;
-    sumXY += p.x * p.y; sumX2 += p.x * p.x;
-  });
+  pts.forEach(p => { sumX += p.x; sumY += p.y; sumXY += p.x * p.y; sumX2 += p.x * p.x; });
 
   if (sol === "LINEAR_REGRESSION") {
-    // y = m*x + c
     let m = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
     let c = (sumY - m * sumX) / n;
     estimatedY = m * targetX + c;
-
-    steps.push({ param: "Slope (m)", value: m });
-    steps.push({ param: "Intercept (c)", value: c });
-    steps.push({ param: "Target x", value: targetX });
-    steps.push({ param: "Predicted y = m*x + c", value: estimatedY });
-
+    steps.push({ param: "Slope (m)", value: m }, { param: "Intercept (c)", value: c }, { param: "Predicted y", value: estimatedY });
     renderTable(["Parameter", "Value"], steps, prec);
     renderPointsGraph(pts, targetX, estimatedY, `Linear Fit: y = ${m.toFixed(2)}x + ${c.toFixed(2)}`);
-  } else if (sol === "POLYNOMIAL_REGRESSION") {
-    // Degree 2: y = a0 + a1*x + a2*x^2
+  } else {
     let sumX3 = 0, sumX4 = 0, sumX2Y = 0;
-    pts.forEach(p => {
-      sumX3 += Math.pow(p.x, 3);
-      sumX4 += Math.pow(p.x, 4);
-      sumX2Y += Math.pow(p.x, 2) * p.y;
-    });
-
-    let matA = [
-      [n, sumX, sumX2],
-      [sumX, sumX2, sumX3],
-      [sumX2, sumX3, sumX4]
-    ];
-    let matB = [sumY, sumXY, sumX2Y];
-    let coeffs = math.lusolve(matA, matB).map(v => v[0]);
-
-    let a0 = coeffs[0], a1 = coeffs[1], a2 = coeffs[2];
-    estimatedY = a0 + a1 * targetX + a2 * Math.pow(targetX, 2);
-
-    steps.push({ param: "a0 (Constant)", value: a0 });
-    steps.push({ param: "a1 (x)", value: a1 });
-    steps.push({ param: "a2 (x²)", value: a2 });
-    steps.push({ param: "Predicted y", value: estimatedY });
-
+    pts.forEach(p => { sumX3 += Math.pow(p.x, 3); sumX4 += Math.pow(p.x, 4); sumX2Y += Math.pow(p.x, 2) * p.y; });
+    let coeffs = math.lusolve([[n, sumX, sumX2], [sumX, sumX2, sumX3], [sumX2, sumX3, sumX4]], [sumY, sumXY, sumX2Y]).map(v => v[0]);
+    estimatedY = coeffs[0] + coeffs[1] * targetX + coeffs[2] * Math.pow(targetX, 2);
+    steps.push({ param: "a0", value: coeffs[0] }, { param: "a1", value: coeffs[1] }, { param: "a2", value: coeffs[2] }, { param: "Predicted y", value: estimatedY });
     renderTable(["Coefficient", "Value"], steps, prec);
-    renderPointsGraph(pts, targetX, estimatedY, "Polynomial Degree 2 Fit");
+    renderPointsGraph(pts, targetX, estimatedY, "Polynomial Fit");
   }
 
-  showResult(`Predicted Extrapolation at x = ${targetX}: y ≈ ${estimatedY.toFixed(prec)}`);
-  return `y ≈ ${estimatedY.toFixed(prec)}`;
+  showResult(`Extrapolation at x = ${targetX}: y ≈ ${estimatedY.toFixed(prec)}`);
+  return { problemJson: JSON.stringify({ points: pts, targetX }), iterations: 0 };
 }
 
-// ----------------- 5. INTEGRATION -----------------
 function runIntegration(sol, prec) {
-  const fnInput = document.getElementById("fnInput");
-  const aInput = document.getElementById("aInput");
-  const bInput = document.getElementById("bInput");
-  const nInput = document.getElementById("nInput");
-
-  if (!fnInput.value.trim() || !aInput.value || !bInput.value || !nInput.value) {
-    alert("กรุณากรอกข้อมูล a, b, n และ f(x) ให้ครบถ้วน");
-    return null;
-  }
-
-  const fnStr = fnInput.value.trim();
-  const a = parseFloat(aInput.value);
-  const b = parseFloat(bInput.value);
-  let n = parseInt(nInput.value);
+  const fnStr = document.getElementById("fnInput").value.trim();
+  const a = parseFloat(document.getElementById("aInput").value);
+  const b = parseFloat(document.getElementById("bInput").value);
+  let n = parseInt(document.getElementById("nInput").value);
 
   if (sol === "SIMPSON" && n % 2 !== 0) {
     n += 1;
     document.getElementById("nInput").value = n;
-    alert("Simpson's 1/3 Rule ต้องใช้ช่วง n เป็นเลขคู่ ได้ปรับเป็น " + n + " ให้แล้วครับ");
   }
 
   const h = (b - a) / n;
@@ -567,14 +523,7 @@ function runIntegration(sol, prec) {
     let cx = a + i * h;
     xVals.push(cx);
     yVals.push(evaluateFn(fnStr, cx));
-
-    if (sol === "TRAPEZOIDAL") {
-      weights.push((i === 0 || i === n) ? 1 : 2);
-    } else {
-      if (i === 0 || i === n) weights.push(1);
-      else if (i % 2 !== 0) weights.push(4);
-      else weights.push(2);
-    }
+    weights.push(sol === "TRAPEZOIDAL" ? ((i === 0 || i === n) ? 1 : 2) : ((i === 0 || i === n) ? 1 : (i % 2 !== 0 ? 4 : 2)));
   }
 
   let sum = 0, steps = [];
@@ -589,61 +538,36 @@ function runIntegration(sol, prec) {
   renderIntegrationGraph(fnStr, a, b, xVals, yVals);
 
   showResult(`Integration Result: I ≈ ${area.toFixed(prec)}`);
-  return `I ≈ ${area.toFixed(prec)}`;
+  return { problemJson: JSON.stringify({ func: fnStr, a, b, n }), iterations: n };
 }
 
-// ----------------- 6. DIFFERENTIATION -----------------
 function runDifferentiation(sol, prec) {
-  const fnInput = document.getElementById("fnInput");
-  const xInput = document.getElementById("diffXInput");
-  const hInput = document.getElementById("stepHInput");
+  const fnStr = document.getElementById("fnInput").value.trim();
+  const x = parseFloat(document.getElementById("diffXInput").value);
+  const h = parseFloat(document.getElementById("stepHInput").value);
 
-  if (!fnInput.value.trim() || !xInput.value || !hInput.value) {
-    alert("กรุณากรอก f(x), x และค่า step size h ให้ครบถ้วน");
-    return null;
-  }
-
-  const fnStr = fnInput.value.trim();
-  const x = parseFloat(xInput.value);
-  const h = parseFloat(hInput.value);
-
-  let approx = 0;
-  let formulaDesc = "";
-
+  let approx = 0, formulaDesc = "";
   if (sol === "FORWARD_DIFF") {
     approx = (evaluateFn(fnStr, x + h) - evaluateFn(fnStr, x)) / h;
-    formulaDesc = "[f(x+h) - f(x)] / h";
+    formulaDesc = "Forward";
   } else if (sol === "BACKWARD_DIFF") {
     approx = (evaluateFn(fnStr, x) - evaluateFn(fnStr, x - h)) / h;
-    formulaDesc = "[f(x) - f(x-h)] / h";
-  } else if (sol === "CENTRAL_DIFF") {
+    formulaDesc = "Backward";
+  } else {
     approx = (evaluateFn(fnStr, x + h) - evaluateFn(fnStr, x - h)) / (2 * h);
-    formulaDesc = "[f(x+h) - f(x-h)] / (2h)";
+    formulaDesc = "Central";
   }
-
-  // Exact Derivative ผ่าน Symbolic ของ Math.js เพื่อเปรียบเทียบ Error
-  let exact = null, trueError = null;
-  try {
-    const dExpr = math.derivative(fnStr, 'x');
-    exact = dExpr.evaluate({ x: x });
-    if (exact !== 0) {
-      trueError = Math.abs((exact - approx) / exact) * 100;
-    }
-  } catch {}
 
   let steps = [
     { desc: "x Value", value: x },
     { desc: "Step size (h)", value: h },
-    { desc: `Formula: ${formulaDesc}`, value: approx },
-    { desc: "Exact Derivative f'(x)", value: exact !== null ? exact : "N/A" },
-    { desc: "True Relative Error (%)", value: trueError !== null ? trueError : "N/A" }
+    { desc: `Formula: ${formulaDesc}`, value: approx }
   ];
 
   renderTable(["Property", "Value"], steps, prec);
   renderDiffGraph(fnStr, x, approx);
-
-  showResult(`Numerical Derivative f'(${x}) ≈ ${approx.toFixed(prec)}`);
-  return `f'(${x}) ≈ ${approx.toFixed(prec)}`;
+  showResult(`f'(${x}) ≈ ${approx.toFixed(prec)}`);
+  return { problemJson: JSON.stringify({ order: 1, error: "h", direction: formulaDesc.toLowerCase(), func: fnStr, x, h }), iterations: 0 };
 }
 
 // ----------------- PRESETS LOADER -----------------
@@ -662,13 +586,10 @@ function loadPreset(type) {
     updateSolutionOptions();
     document.getElementById("solutionType").value = "GAUSS_JORDAN";
     renderDynamicInputs();
-    // Default 3x3 Matrix ตัวอย่างจากรายงาน
     const matrixA = [[-2, 3, 1], [3, 4, -5], [1, -2, 1]];
     const matrixB = [9, 0, -5];
     for (let r = 0; r < 3; r++) {
-      for (let c = 0; c < 3; c++) {
-        document.getElementById(`mat_a_${r}_${c}`).value = matrixA[r][c];
-      }
+      for (let c = 0; c < 3; c++) document.getElementById(`mat_a_${r}_${c}`).value = matrixA[r][c];
       document.getElementById(`mat_b_${r}`).value = matrixB[r];
     }
   } else if (type === 'interp' || type === 'extra') {
@@ -697,6 +618,94 @@ function loadPreset(type) {
   }
 }
 
+// ----------------- FORMULA NOTE HELPER -----------------
+function displayFormulaNote(sol) {
+  const container = document.getElementById("formulaContent");
+  if (!container) return;
+
+  const formulaData = {
+    BISECTION: {
+      title: "Bisection Method (การแบ่งครึ่งช่วง)",
+      desc: "แบ่งครึ่งช่วงเพื่อค้นหารากสมการ โดยตรวจสอบเงื่อนไข f(X_L) * f(X_R) < 0 เพื่อให้มั่นใจว่ามีรากคำตอบอยู่ในช่วง",
+      formula: "จุดกึ่งกลาง: X_m = (X_L + X_R) / 2\nความคลาดเคลื่อน: ε_a = |(X_m_new - X_m_old) / X_m_new| × 100%"
+    },
+    FALSE_POSITION: {
+      title: "False Position Method (การประมาณค่าเชิงเส้น)",
+      desc: "เชื่อมเส้นตรงระหว่างจุดขอบเขตเพื่อหาจุดตัดแกน x สำหรับประมาณค่ารากสมการที่รวดเร็วกว่าการแบ่งครึ่งช่วง",
+      formula: "จุดตัด: X_m = [X_L · f(X_R) - X_R · f(X_L)] / [f(X_R) - f(X_L)]\nความคลาดเคลื่อน: ε_a = |(X_m_new - X_m_old) / X_m_new| × 100%"
+    },
+    NEWTON_RAPHSON: {
+      title: "Newton-Raphson Method",
+      desc: "ใช้ความชันเส้นสัมผัส (Derivative) จากจุดเริ่มต้นเพื่อลู่เข้าหาคำตอบอย่างรวดเร็ว (Quadratic Convergence)",
+      formula: "สูตรวนซ้ำ: X_{n+1} = X_n - [f(X_n) / f'(X_n)]\nความคลาดเคลื่อน: ε_a = |(X_{n+1} - X_n) / X_{n+1}| × 100%"
+    },
+    GAUSS_JORDAN: {
+      title: "Gauss-Jordan Elimination (RREF)",
+      desc: "แปลงเมทริกซ์แต่งเติม [A | b] ให้อยู่ในรูปขั้นบันไดลดรูป (Reduced Row Echelon Form) เพื่อหาค่าคำตอบ x1, x2, ..., xn โดยตรง",
+      formula: "ขั้นตอนหลัก: 1) Partial Pivoting สลับแถว  2) นำ Pivot ไปหารทั้งแถว  3) กำจัดแถวอื่นด้วย Row Operations"
+    },
+    CRAMER: {
+      title: "Cramer's Rule",
+      desc: "หาคำตอบของระบบสมการเชิงเส้นโดยใช้ดีเทอร์มิแนนต์ (Determinant) ของเมทริกซ์",
+      formula: "สูตรคำนวณ: x_i = det(A_i) / det(A)\n(โดยที่ A_i คือเมทริกซ์ A ที่ถูกแทนที่หลักที่ i ด้วยเวกเตอร์ b)"
+    },
+    NEWTON_DIVIDED: {
+      title: "Newton's Divided Difference Interpolation",
+      desc: "สร้างพหุนามการประมาณค่าในช่วงด้วยตารางผลต่างสืบเนื่อง",
+      formula: "P(x) = f[x0] + f[x0, x1](x - x0) + f[x0, x1, x2](x - x0)(x - x1) + ..."
+    },
+    LAGRANGE: {
+      title: "Lagrange Interpolation",
+      desc: "ประมาณค่าฟังก์ชันในช่วงด้วยการถ่วงน้ำหนักพหุนามลากรองจ์ (Lagrange Polynomial Weights)",
+      formula: "P(x) = Σ [L_i(x) · y_i]\nโดยที่ L_i(x) = Π [(x - x_j) / (x_i - x_j)] สำหรับทุก j ≠ i"
+    },
+    LINEAR_REGRESSION: {
+      title: "Linear Regression (การถดถอยเชิงเส้น)",
+      desc: "สร้างสมการเส้นตรงแนวโน้มที่สอดคล้องกับกลุ่มจุดข้อมูลมากที่สุดด้วยระเบียบวิธีกำลังสองน้อยสุด",
+      formula: "สมการ: y = m·x + c\nความชัน: m = [nΣxy - ΣxΣy] / [nΣx² - (Σx)²]\nจุดตัดแกน y: c = [Σy - mΣx] / n"
+    },
+    POLYNOMIAL_REGRESSION: {
+      title: "Polynomial Regression (Degree 2)",
+      desc: "สร้างสมการพาราโบลาเส้นโค้งแนวโน้ม y = a0 + a1·x + a2·x²",
+      formula: "แก้ระบบสมการ Normal Equations 3x3 ด้วย Least Squares"
+    },
+    TRAPEZOIDAL: {
+      title: "Trapezoidal Rule (กฎสี่เหลี่ยมคางหมู)",
+      desc: "ประมาณพื้นที่ใต้กราฟด้วยผลรวมของรูปสี่เหลี่ยมคางหมูย่อยจำนวน n ช่วง",
+      formula: "ความกว้างช่วง: h = (b - a) / n\nสูตรคำนวณ: I = (h / 2) · [f(x0) + 2Σf(xi) + f(xn)]"
+    },
+    SIMPSON: {
+      title: "Simpson's 1/3 Rule",
+      desc: "ประมาณพื้นที่ใต้กราฟด้วยพหุนามกำลังสองพาดผ่านจุด (ต้องการจำนวนช่วง n เป็นเลขคู่เสมอ)",
+      formula: "ความกว้างช่วง: h = (b - a) / n\nสูตรคำนวณ: I = (h / 3) · [f(x0) + 4Σf(x_odd) + 2Σf(x_even) + f(xn)]"
+    },
+    CENTRAL_DIFF: {
+      title: "Central Divided Difference",
+      desc: "ประมาณค่าความชัน f'(x) โดยใช้ค่าฟังก์ชันทั้งหน้าและหลังจุด x",
+      formula: "สูตรคำนวณ: f'(x) ≈ [f(x + h) - f(x - h)] / (2h)"
+    },
+    FORWARD_DIFF: {
+      title: "Forward Divided Difference",
+      desc: "ประมาณค่าอนุพันธ์ f'(x) โดยใช้ค่าฟังก์ชันที่จุดถัดไป",
+      formula: "สูตรคำนวณ: f'(x) ≈ [f(x + h) - f(x)] / h"
+    },
+    BACKWARD_DIFF: {
+      title: "Backward Divided Difference",
+      desc: "ประมาณค่าอนุพันธ์ f'(x) โดยใช้ค่าฟังก์ชันที่จุดก่อนหน้า",
+      formula: "สูตรคำนวณ: f'(x) ≈ [f(x) - f(x - h)] / h"
+    }
+  };
+
+  const info = formulaData[sol];
+  if (!info) return;
+
+  container.innerHTML = `
+    <h4>${info.title}</h4>
+    <p>${info.desc}</p>
+    <div class="formula-code">${info.formula.replace(/\n/g, '<br>')}</div>
+  `;
+}
+
 // ----------------- UI / PLOTLY HELPERS -----------------
 function showResult(text) {
   document.getElementById("outputSection").style.display = "flex";
@@ -710,10 +719,7 @@ function renderTable(headers, rows, prec) {
   const tbody = document.getElementById("tableBody");
   tbody.innerHTML = rows.map(r => {
     const vals = Object.values(r);
-    return `<tr>${vals.map((v, i) => {
-      if (typeof v === 'number') return `<td>${v.toFixed(prec)}</td>`;
-      return `<td>${v}</td>`;
-    }).join('')}</tr>`;
+    return `<tr>${vals.map(v => typeof v === 'number' ? `<td>${v.toFixed(prec)}</td>` : `<td>${v}</td>`).join('')}</tr>`;
   }).join('');
 }
 
@@ -758,7 +764,7 @@ function renderPointsGraph(pts, targetX, targetY, curveName) {
   pts.sort((a, b) => a.x - b.x);
   const traces = [
     { x: pts.map(p => p.x), y: pts.map(p => p.y), type: 'scatter', mode: 'lines+markers', name: curveName, line: { color: '#6366f1', shape: 'spline' }, marker: { size: 8 } },
-    { x: [targetX], y: [targetY], type: 'scatter', mode: 'markers', name: 'Interpolated/Predicted Point', marker: { color: '#34d399', size: 12, symbol: 'star' } }
+    { x: [targetX], y: [targetY], type: 'scatter', mode: 'markers', name: 'Target Point', marker: { color: '#34d399', size: 12, symbol: 'star' } }
   ];
   plotChart(traces);
 }
@@ -777,7 +783,7 @@ function renderDiffGraph(fnStr, x0, slope) {
 
   const traces = [
     { x: xPlot, y: yPlot, type: 'scatter', mode: 'lines', name: 'f(x)', line: { color: '#6366f1' } },
-    { x: tanX, y: tanY, type: 'scatter', mode: 'lines', name: 'Tangent (ความชัน)', line: { color: '#38bdf8', dash: 'dash' } },
+    { x: tanX, y: tanY, type: 'scatter', mode: 'lines', name: 'Tangent', line: { color: '#38bdf8', dash: 'dash' } },
     { x: [x0], y: [y0], type: 'scatter', mode: 'markers', name: 'Point', marker: { color: '#34d399', size: 10 } }
   ];
   plotChart(traces);
@@ -796,17 +802,17 @@ function plotChart(traces) {
   Plotly.newPlot('plotlyChart', traces, layout, { responsive: true });
 }
 
-// ----------------- LOCALSTORAGE HISTORY -----------------
+// ----------------- HISTORY TABLE (5 MOST RECENT SOLVED PROBLEMS) -----------------
 function saveHistory(item) {
-  let history = JSON.parse(localStorage.getItem("numer_calc_history") || "[]");
+  let history = JSON.parse(localStorage.getItem("numer_5_recent_problems") || "[]");
   history.unshift(item);
-  if (history.length > 10) history.pop();
-  localStorage.setItem("numer_calc_history", JSON.stringify(history));
+  if (history.length > 5) history.pop(); // จำกัด 5 รายการล่าสุดตามรูป
+  localStorage.setItem("numer_5_recent_problems", JSON.stringify(history));
   loadHistory();
 }
 
 function loadHistory() {
-  const history = JSON.parse(localStorage.getItem("numer_calc_history") || "[]");
+  const history = JSON.parse(localStorage.getItem("numer_5_recent_problems") || "[]");
   const historyBody = document.getElementById("historyBody");
   if (!historyBody) return;
 
@@ -817,23 +823,24 @@ function loadHistory() {
 
   historyBody.innerHTML = history.map(item => `
     <tr>
-      <td style="color: var(--text-muted);">${item.time}</td>
-      <td><span style="color: var(--accent-blue);">${item.type}</span></td>
-      <td>${item.method}</td>
-      <td style="font-family: monospace;">${item.problem}</td>
-      <td style="color: var(--accent-green); font-weight: 600;">${item.result}</td>
+      <td><span class="history-id-link">${item.id}</span></td>
+      <td style="font-family: monospace; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title='${item.problemJson}'>${item.problemJson}</td>
+      <td style="color: ${item.user === '-' ? 'var(--text-muted)' : '#fff'}; font-weight: ${item.user === '-' ? 'normal' : '600'};">${item.user}</td>
+      <td class="history-date">${item.date}</td>
+      <td style="text-align: center;">${item.iterations}</td>
     </tr>
   `).join('');
 }
 
 function clearHistory() {
   if (confirm("ต้องการลบประวัติการคำนวณทั้งหมดหรือไม่?")) {
-    localStorage.removeItem("numer_calc_history");
+    localStorage.removeItem("numer_5_recent_problems");
     loadHistory();
   }
 }
 
 window.onload = function() {
   updateSolutionOptions();
+  updateAuthUI();
   loadHistory();
 };
